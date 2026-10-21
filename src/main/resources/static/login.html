@@ -1,0 +1,213 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>HostelCare | Login</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f0f5fa;
+            font-family: Arial, sans-serif;
+            color: #172b4d;
+            padding: 20px;
+        }
+
+        .login-card {
+            width: 100%;
+            max-width: 526px;
+            background: white;
+            padding: 40px;
+            border-radius: 22px;
+            box-shadow: 0 15px 45px rgba(0, 0, 0, 0.07);
+        }
+
+        .logo {
+            width: 75px;
+            height: 75px;
+            margin: 0 auto 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 20px;
+            background: #dceaff;
+            color: #245cf5;
+            font-size: 36px;
+            font-weight: bold;
+        }
+
+        h1 {
+            margin: 0;
+            text-align: center;
+            font-size: 38px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #65758b;
+            font-size: 19px;
+            margin: 20px 0 34px;
+        }
+
+        label {
+            display: block;
+            margin: 20px 0 10px;
+            font-weight: bold;
+            font-size: 17px;
+        }
+
+        input {
+            width: 100%;
+            padding: 17px;
+            border: 1px solid #cbd5e1;
+            border-radius: 11px;
+            font-size: 16px;
+        }
+
+        input:focus {
+            outline: 2px solid #b8ccff;
+            border-color: #2864f0;
+        }
+
+        button {
+            width: 100%;
+            margin-top: 30px;
+            padding: 17px;
+            border: none;
+            border-radius: 10px;
+            background: #2864ed;
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #174fd0;
+        }
+
+        #message {
+            color: #c62828;
+            text-align: center;
+            margin-top: 15px;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 30px;
+            color: #65758b;
+            font-size: 14px;
+        }
+
+        @media (max-width: 500px) {
+            .login-card {
+                padding: 28px 22px;
+            }
+
+            h1 {
+                font-size: 32px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+<main class="login-card">
+    <div class="logo">H</div>
+
+    <h1>HostelCare</h1>
+    <p class="subtitle">Sign in to your account</p>
+
+    <form id="loginForm" action="/login" method="POST">
+        <label for="username">User ID</label>
+        <input
+                id="username"
+                type="text"
+                name="username"
+                placeholder="e.g. admin@1001"
+                autocomplete="username"
+                required
+        >
+
+        <label for="password">Password</label>
+        <input
+                id="password"
+                type="password"
+                name="password"
+                placeholder="Enter your password"
+                autocomplete="current-password"
+                required
+        >
+
+        <input type="hidden" name="_csrf" id="csrfToken">
+
+        <button type="submit" id="loginButton">
+            Login
+        </button>
+    </form>
+
+    <p id="message" role="alert"></p>
+
+    <footer>
+        College Hostel Complaint Management System
+    </footer>
+</main>
+
+<script>
+    const params = new URLSearchParams(window.location.search);
+    const message = document.getElementById("message");
+    const form = document.getElementById("loginForm");
+    const button = document.getElementById("loginButton");
+
+    if (params.has("error")) {
+        message.textContent =
+            "Invalid User ID or password. Please try again.";
+    } else if (params.has("logout")) {
+        message.style.color = "green";
+        message.textContent =
+            "You have logged out successfully.";
+    }
+
+    async function prepareLogin() {
+        button.disabled = true;
+
+        try {
+            const response = await fetch("/csrf");
+
+            if (!response.ok) {
+                throw new Error("Could not obtain security token");
+            }
+
+            const csrf = await response.json();
+            document.getElementById("csrfToken").value = csrf.token;
+
+            button.disabled = false;
+        } catch (error) {
+            message.textContent =
+                "Unable to prepare login. Restart the application and try again.";
+        }
+    }
+
+    form.addEventListener("submit", function (event) {
+        if (!document.getElementById("csrfToken").value) {
+            event.preventDefault();
+            message.textContent =
+                "Security token is not ready. Please wait and try again.";
+        }
+    });
+
+    prepareLogin();
+</script>
+</body>
+</html>

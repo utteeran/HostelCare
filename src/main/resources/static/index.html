@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HostelCare | Student Portal</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: Arial, sans-serif; background: #f1f5fb; color: #1e293b; }
+        header { background: #172554; color: white; padding: 22px 6%; display: flex; justify-content: space-between; align-items: center; gap: 15px; flex-wrap: wrap; }
+        header h1 { margin: 0; }
+        header p { margin-bottom: 0; color: #dbeafe; }
+        main { width: 92%; max-width: 760px; margin: 30px auto; }
+        .card { background: white; padding: 25px; margin-bottom: 20px; border-radius: 12px; box-shadow: 0 5px 20px #0001; }
+        label { display: block; font-weight: bold; margin: 14px 0 7px; }
+        input, select, textarea { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 15px; }
+        textarea { min-height: 110px; resize: vertical; }
+        button { border: 0; border-radius: 6px; padding: 12px 17px; background: #3157a4; color: white; font-weight: bold; cursor: pointer; }
+        button:disabled { opacity: .6; }
+        .logout { background: #b42318; }
+        #message { white-space: pre-wrap; overflow-wrap: anywhere; }
+        footer { text-align: center; padding: 20px; color: #64748b; }
+    </style>
+</head>
+<body>
+<header>
+    <div>
+        <h1>HostelCare</h1>
+        <p>Student Complaint Portal</p>
+    </div>
+    <button class="logout" type="button" onclick="logout()">Logout</button>
+</header>
+
+<main>
+    <section class="card">
+        <h2>Submit a Complaint</h2>
+        <p>Report a hostel maintenance problem using this form.</p>
+
+        <form id="complaintForm">
+            <label for="studentName">Student Name</label>
+            <input id="studentName" name="studentName" required placeholder="Enter your name">
+
+            <label for="roomNumber">Room Number</label>
+            <input id="roomNumber" name="roomNumber" required placeholder="Example: B204">
+
+            <label for="category">Complaint Category</label>
+            <select id="category" name="category" required>
+                <option value="Electrical">Electrical</option>
+                <option value="Plumbing">Plumbing</option>
+                <option value="Cleaning">Cleaning</option>
+                <option value="Furniture">Furniture</option>
+                <option value="Other">Other</option>
+            </select>
+
+            <label for="priority">Priority</label>
+            <select id="priority" name="priority" required>
+                <option value="Low">Low</option>
+                <option value="Medium" selected>Medium</option>
+                <option value="High">High</option>
+            </select>
+
+            <label for="title">Complaint Title</label>
+            <input id="title" name="title" required placeholder="Example: Fan not working">
+
+            <label for="description">Describe the Problem</label>
+            <textarea id="description" name="description" required placeholder="Explain the problem clearly"></textarea>
+
+            <br><br>
+            <button id="submitButton" type="submit">Submit Complaint</button>
+        </form>
+    </section>
+
+    <section class="card">
+        <h2>Submission Result</h2>
+        <p id="message" role="status" aria-live="polite">Your submission result will appear here.</p>
+        <pre id="result" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>
+    </section>
+</main>
+
+<footer>HostelCare | Hostel Complaint Management System</footer>
+
+<script>
+    let csrfToken = "";
+
+    async function getCsrfToken() {
+        const response = await fetch("/csrf");
+        if (!response.ok) throw new Error("Unable to obtain security token.");
+        const data = await response.json();
+        csrfToken = data.token;
+    }
+
+    async function logout() {
+        try {
+            if (!csrfToken) await getCsrfToken();
+
+            const response = await fetch("/logout", {
+                method: "POST",
+                headers: { "X-CSRF-TOKEN": csrfToken }
+            });
+
+            if (response.ok || response.redirected) {
+                window.location.replace("/login.html?logout");
+            } else {
+                alert("Logout failed. Please try again.");
+            }
+        } catch (error) {
+            alert(error.message);
+        }
+    }
+
+    document.getElementById("complaintForm").addEventListener("submit", async event => {
+        event.preventDefault();
+
+        const button = document.getElementById("submitButton");
+        const message = document.getElementById("message");
+        const resultBox = document.getElementById("result");
+
+        button.disabled = true;
+        message.textContent = "Submitting complaint...";
+        resultBox.textContent = "";
+
+        try {
+            if (!csrfToken) await getCsrfToken();
+
+            const data = Object.fromEntries(new FormData(event.target).entries());
+
+            const response = await fetch("/api/complaints", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRF-TOKEN": csrfToken
+                },
+                body: JSON.stringify(data)
+            });
+
+            const text = await response.text();
+            let output = text;
+
+            try {
+                output = JSON.stringify(JSON.parse(text), null, 2);
+            } catch {}
+
+            resultBox.textContent = output;
+
+            if (response.ok) {
+                message.textContent = "Complaint submitted successfully. Save the result above for reference.";
+                event.target.reset();
+            } else {
+                message.textContent = "Complaint submission failed. Check the result below.";
+            }
+        } catch (error) {
+            message.textContent = "Error: " + error.message;
+        } finally {
+            button.disabled = false;
+        }
+    });
+
+    getCsrfToken().catch(error => {
+        document.getElementById("message").textContent = error.message;
+    });
+</script>
+</body>
+</html>

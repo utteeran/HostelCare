@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HostelCare | Home</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f1f5fb;
+            color: #1e293b;
+        }
+
+        header {
+            background: linear-gradient(135deg, #172554, #3157a4);
+            color: white;
+            text-align: center;
+            padding: 45px 20px;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 38px;
+        }
+
+        header p {
+            color: #dbeafe;
+            margin-top: 12px;
+        }
+
+        main {
+            width: 90%;
+            max-width: 1000px;
+            margin: 45px auto;
+        }
+
+        main h2 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .portals {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 22px;
+        }
+
+        .portal {
+            background: white;
+            padding: 30px 22px;
+            text-align: center;
+            border-radius: 14px;
+            box-shadow: 0 6px 22px rgba(15, 23, 42, 0.08);
+        }
+
+        .portal h3 {
+            color: #1e3a8a;
+            margin-top: 0;
+        }
+
+        .portal p {
+            color: #64748b;
+            line-height: 1.6;
+            min-height: 50px;
+        }
+
+        .portal a {
+            display: block;
+            margin-top: 20px;
+            padding: 13px;
+            background: #3157a4;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+
+        .portal a:hover {
+            background: #1e3a8a;
+        }
+
+        footer {
+            text-align: center;
+            padding: 25px;
+            color: #64748b;
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <h1>HostelCare</h1>
+    <p>Hostel Complaint &amp; Maintenance Management System</p>
+</header>
+
+<main>
+    <h2>Select Your Portal</h2>
+
+    <div class="portals">
+
+        <section class="portal">
+            <h3>Student Portal</h3>
+            <p>Submit hostel maintenance complaints easily.</p>
+            <a href="/">Open Student Portal</a>
+        </section>
+
+        <section class="portal">
+            <h3>Staff Dashboard</h3>
+            <p>View complaints, update status, and assign mechanics.</p>
+            <a href="/staff.html">Open Staff Dashboard</a>
+        </section>
+
+        <section class="portal">
+            <h3>Complaint Verification</h3>
+            <p>Review and verify submitted hostel complaints.</p>
+            <a href="/verify.html">Open Verification</a>
+        </section>
+
+    </div>
+</main>
+
+<footer>
+    HostelCare | Making Hostel Maintenance Easier
+</footer>
+
+</body>
+</html>

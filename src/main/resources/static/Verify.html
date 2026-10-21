@@ -1,0 +1,140 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HostelCare | RC Verification</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; background: #f1f5fb; color: #1e293b; }
+        header { background: #172554; color: white; padding: 20px 5%; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; }
+        main { max-width: 1000px; margin: 25px auto; padding: 0 15px; }
+        .card { background: white; padding: 20px; margin-bottom: 15px; border-radius: 10px; overflow-wrap: anywhere; }
+        button { padding: 10px 14px; margin: 5px; border: 0; border-radius: 5px; background: #243b64; color: white; cursor: pointer; }
+        .logout, .reject { background: #b42318; }
+        .approve { background: #147d36; }
+    </style>
+</head>
+<body>
+<header>
+    <div><h1>HostelCare RC</h1><p>Complaint Verification</p></div>
+    <button class="logout" onclick="logout()">Logout</button>
+</header>
+<main>
+    <h2>Complaints</h2>
+    <button onclick="loadComplaints()">Refresh</button>
+    <p id="message" role="status"></p>
+    <div id="complaints"></div>
+</main>
+
+<script>
+    let csrfToken = "";
+
+    async function getCsrfToken() {
+        const response = await fetch("/csrf");
+        if (!response.ok) throw new Error("Could not get security token.");
+        csrfToken = (await response.json()).token;
+    }
+
+    async function loadComplaints() {
+        const container = document.getElementById("complaints");
+        const message = document.getElementById("message");
+        container.replaceChildren();
+        message.textContent = "Loading complaints...";
+
+        try {
+            const response = await fetch("/api/complaints");
+            if (!response.ok) throw new Error("Could not load complaints.");
+
+            const complaints = await response.json();
+
+            complaints.forEach(complaint => {
+                const card = document.createElement("section");
+                card.className = "card";
+
+                const title = document.createElement("h3");
+                title.textContent = complaint.title || ("Complaint #" + complaint.id);
+                card.appendChild(title);
+
+                const details = document.createElement("p");
+                details.textContent =
+                    "ID: " + (complaint.id ?? "") +
+                    "\nRoom: " + (complaint.roomNumber ?? "Not provided") +
+                    "\nCategory: " + (complaint.category ?? "") +
+                    "\nPriority: " + (complaint.priority ?? "") +
+                    "\nStatus: " + (complaint.status ?? "") +
+                    "\nDescription: " + (complaint.description ?? "");
+                details.style.whiteSpace = "pre-line";
+                card.appendChild(details);
+
+                const approve = document.createElement("button");
+                approve.className = "approve";
+                approve.textContent = "Verify";
+                approve.onclick = () => updateVerification(complaint.id, true);
+
+                const reject = document.createElement("button");
+                reject.className = "reject";
+                reject.textContent = "Reject";
+                reject.onclick = () => updateVerification(complaint.id, false);
+
+                card.append(approve, reject);
+                container.appendChild(card);
+            });
+
+            message.textContent = complaints.length + " complaint(s) loaded.";
+        } catch (error) {
+            message.textContent = error.message;
+        }
+    }
+
+    async function updateVerification(id, verified) {
+        try {
+            const response = await fetch("/api/complaints/" + id + "/verification", {
+                method: "PATCH",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRF-TOKEN": csrfToken
+                },
+                body: JSON.stringify({ verified })
+            });
+
+            if (!response.ok) {
+                const text = await response.text();
+                throw new Error(text || "Verification update failed.");
+            }
+
+            await loadComplaints();
+        } catch (error) {
+            alert(error.message);
+        }
+    }
+
+    async function logout() {
+        try {
+            const response = await fetch("/logout", {
+                method: "POST",
+                headers: { "X-CSRF-TOKEN": csrfToken }
+            });
+            if (response.ok || response.redirected) {
+                window.location.replace("/login.html?logout");
+            } else {
+                alert("Logout failed.");
+            }
+        } catch (error) {
+            alert(error.message);
+        }
+    }
+
+    async function initialize() {
+        try {
+            await getCsrfToken();
+            await loadComplaints();
+        } catch (error) {
+            document.getElementById("message").textContent = error.message;
+        }
+    }
+
+    initialize();
+</script>
+</body>
+</html>

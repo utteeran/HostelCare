@@ -1,0 +1,193 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HostelCare | Admin Dashboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 25px; background: #f1f5fb; color: #1e293b; }
+        main { max-width: 1000px; margin: auto; }
+        .top { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .card { background: white; padding: 22px; margin: 20px 0; border-radius: 10px; }
+        input, select, button { padding: 11px; margin: 6px 4px 6px 0; border: 1px solid #ccc; border-radius: 5px; }
+        button { cursor: pointer; background: #243b64; color: white; border: 0; }
+        .danger { background: #b42318; }
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 11px; border-bottom: 1px solid #ddd; text-align: left; }
+        th { background: #e8edf5; }
+        #message, #listMessage { overflow-wrap: anywhere; }
+    </style>
+</head>
+<body>
+<main>
+    <div class="top">
+        <div>
+            <h1>HostelCare Admin</h1>
+            <p>Account Management Dashboard</p>
+        </div>
+        <button type="button" onclick="logout()" class="danger">Logout</button>
+    </div>
+
+    <section class="card">
+        <h2>Create Account</h2>
+        <form id="createForm">
+            <p><input id="loginId" required placeholder="Login ID: stud@1234"></p>
+            <p><input id="password" type="password" required minlength="8" maxlength="72" placeholder="Password (8–72 characters)"></p>
+            <p>
+                <select id="role" required>
+                    <option value="">Choose role</option>
+                    <option value="STUDENT">Student</option>
+                    <option value="RC">RC</option>
+                    <option value="STAFF">Staff</option>
+                </select>
+            </p>
+            <button type="submit">Create Account</button>
+        </form>
+        <p id="message" role="status"></p>
+    </section>
+
+    <section class="card">
+        <h2>All Accounts</h2>
+        <button type="button" onclick="loadUsers()">Refresh</button>
+        <p id="listMessage" role="status"></p>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                <tr><th>ID</th><th>Login ID</th><th>Role</th><th>Status</th><th>Action</th></tr>
+                </thead>
+                <tbody id="userTable"></tbody>
+            </table>
+        </div>
+    </section>
+</main>
+
+<script>
+    let csrfToken = "";
+
+    async function getCsrfToken() {
+        const response = await fetch("/csrf");
+        if (!response.ok) throw new Error("Could not get security token.");
+        csrfToken = (await response.json()).token;
+    }
+
+    async function apiRequest(url, options = {}) {
+        const headers = { ...(options.headers || {}) };
+        if (options.body) headers["Content-Type"] = "application/json";
+        if (options.method && options.method !== "GET") {
+            headers["X-CSRF-TOKEN"] = csrfToken;
+        }
+        return fetch(url, { ...options, headers });
+    }
+
+    document.getElementById("createForm").addEventListener("submit", async event => {
+        event.preventDefault();
+        const message = document.getElementById("message");
+        message.textContent = "Creating account...";
+
+        try {
+            const response = await apiRequest("/api/admin/users", {
+                method: "POST",
+                body: JSON.stringify({
+                    loginId: document.getElementById("loginId").value.trim(),
+                    password: document.getElementById("password").value,
+                    role: document.getElementById("role").value
+                })
+            });
+
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message || "Could not create account.");
+
+            message.textContent = "Created account: " + data.loginId;
+            event.target.reset();
+            await loadUsers();
+        } catch (error) {
+            message.textContent = error.message;
+        }
+    });
+
+    async function loadUsers() {
+        const table = document.getElementById("userTable");
+        const message = document.getElementById("listMessage");
+        table.replaceChildren();
+        message.textContent = "Loading...";
+
+        try {
+            const response = await apiRequest("/api/admin/users");
+            if (!response.ok) throw new Error("Could not load accounts.");
+
+            const users = await response.json();
+
+            users.forEach(user => {
+                const row = document.createElement("tr");
+                [user.id, user.loginId, user.role, user.enabled ? "Enabled" : "Disabled"]
+                    .forEach(value => {
+                        const cell = document.createElement("td");
+                        cell.textContent = value;
+                        row.appendChild(cell);
+                    });
+
+                const actionCell = document.createElement("td");
+                const button = document.createElement("button");
+
+                if (user.role === "ADMIN") {
+                    button.textContent = "Protected";
+                    button.disabled = true;
+                } else {
+                    button.textContent = user.enabled ? "Disable" : "Enable";
+                    if (user.enabled) button.className = "danger";
+                    button.onclick = () => changeStatus(user.id, !user.enabled);
+                }
+
+                actionCell.appendChild(button);
+                row.appendChild(actionCell);
+                table.appendChild(row);
+            });
+
+            message.textContent = users.length + " account(s) found.";
+        } catch (error) {
+            message.textContent = error.message;
+        }
+    }
+
+    async function changeStatus(id, enabled) {
+        try {
+            const response = await apiRequest("/api/admin/users/" + id + "/enabled", {
+                method: "PATCH",
+                body: JSON.stringify({ enabled })
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message || "Update failed.");
+            await loadUsers();
+        } catch (error) {
+            alert(error.message);
+        }
+    }
+
+    async function logout() {
+        try {
+            const response = await apiRequest("/logout", { method: "POST" });
+            if (response.ok || response.redirected) {
+                window.location.replace("/login.html?logout");
+            } else {
+                alert("Logout failed.");
+            }
+        } catch (error) {
+            alert(error.message);
+        }
+    }
+
+    async function initialize() {
+        try {
+            await getCsrfToken();
+            await loadUsers();
+        } catch (error) {
+            document.getElementById("listMessage").textContent = error.message;
+        }
+    }
+
+    initialize();
+</script>
+</body>
+</html>

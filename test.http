@@ -1,0 +1,12 @@
+
+POST http://localhost:8081/api/complaints
+Content-Type: application/json
+
+{
+  "studentName": "Test Student",
+  "roomNumber": "B204",
+  "category": "Electrical",
+  "priority": "Medium",
+  "title": "Fan not working",
+  "description": "The ceiling fan is not working."
+}
