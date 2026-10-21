@@ -5,132 +5,399 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HostelCare | RC Verification</title>
+
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; background: #f1f5fb; color: #1e293b; }
-        header { background: #172554; color: white; padding: 20px 5%; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; }
-        main { max-width: 1000px; margin: 25px auto; padding: 0 15px; }
-        .card { background: white; padding: 20px; margin-bottom: 15px; border-radius: 10px; overflow-wrap: anywhere; }
-        button { padding: 10px 14px; margin: 5px; border: 0; border-radius: 5px; background: #243b64; color: white; cursor: pointer; }
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background: #f1f5fb;
+            color: #1e293b;
+        }
+
+        header {
+            background: #172554;
+            color: white;
+            padding: 20px 5%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        header h1, header p { margin: 5px 0; }
+
+        main {
+            max-width: 1000px;
+            margin: 25px auto;
+            padding: 0 15px;
+        }
+
+        .card {
+            background: white;
+            padding: 20px;
+            margin-bottom: 16px;
+            border-radius: 10px;
+            overflow-wrap: anywhere;
+            box-shadow: 0 2px 8px #0000000d;
+        }
+
+        .details {
+            white-space: pre-line;
+            line-height: 1.6;
+        }
+
+        label {
+            display: block;
+            margin: 12px 0 6px;
+            font-weight: bold;
+        }
+
+        input, select {
+            width: 100%;
+            max-width: 420px;
+            padding: 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 5px;
+            font-size: 15px;
+        }
+
+        button {
+            padding: 10px 14px;
+            margin: 12px 6px 0 0;
+            border: 0;
+            border-radius: 5px;
+            background: #243b64;
+            color: white;
+            cursor: pointer;
+        }
+
+        button:disabled {
+            opacity: .6;
+            cursor: not-allowed;
+        }
+
         .logout, .reject { background: #b42318; }
         .approve { background: #147d36; }
+        .save-priority { background: #6d4acb; }
+
+        #message {
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+        }
+
+        .empty {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+        }
+
+        .status { font-weight: bold; }
     </style>
 </head>
+
 <body>
 <header>
-    <div><h1>HostelCare RC</h1><p>Complaint Verification</p></div>
-    <button class="logout" onclick="logout()">Logout</button>
+    <div>
+        <h1>HostelCare RC</h1>
+        <p>Complaint Verification Dashboard</p>
+    </div>
+    <button type="button" class="logout" id="logoutButton">Logout</button>
 </header>
+
 <main>
     <h2>Complaints</h2>
-    <button onclick="loadComplaints()">Refresh</button>
-    <p id="message" role="status"></p>
+    <button type="button" id="refreshButton">Refresh Complaints</button>
+    <p id="message" role="status" aria-live="polite">Loading complaints...</p>
     <div id="complaints"></div>
 </main>
 
 <script>
     let csrfToken = "";
+    let loading = false;
+
+    const message = document.getElementById("message");
+    const container = document.getElementById("complaints");
+
+    async function readResponse(response) {
+        const text = await response.text();
+        if (!text) return "";
+
+        try {
+            const data = JSON.parse(text);
+            return data.detail || data.message || data.error || text;
+        } catch {
+            return text;
+        }
+    }
 
     async function getCsrfToken() {
-        const response = await fetch("/csrf");
-        if (!response.ok) throw new Error("Could not get security token.");
-        csrfToken = (await response.json()).token;
+        const response = await fetch("/csrf", {
+            credentials: "same-origin",
+            headers: { "Accept": "application/json" }
+        });
+
+        if (!response.ok) {
+            throw new Error(
+                "CSRF request failed (" + response.status + "): " +
+                await readResponse(response)
+            );
+        }
+
+        const data = await response.json();
+        csrfToken = data.token || "";
+
+        if (!csrfToken) {
+            throw new Error("CSRF token is missing from the server response.");
+        }
+    }
+
+    function makeLabel(text, htmlFor) {
+        const label = document.createElement("label");
+        label.textContent = text;
+        label.htmlFor = htmlFor;
+        return label;
     }
 
     async function loadComplaints() {
-        const container = document.getElementById("complaints");
-        const message = document.getElementById("message");
+        if (loading) return;
+
+        loading = true;
         container.replaceChildren();
         message.textContent = "Loading complaints...";
 
         try {
-            const response = await fetch("/api/complaints");
-            if (!response.ok) throw new Error("Could not load complaints.");
+            const response = await fetch("/api/complaints", {
+                credentials: "same-origin",
+                headers: { "Accept": "application/json" }
+            });
+
+            if (!response.ok) {
+                throw new Error(
+                    "Could not load complaints (" + response.status + "): " +
+                    await readResponse(response)
+                );
+            }
 
             const complaints = await response.json();
+
+            if (!Array.isArray(complaints)) {
+                throw new Error("The complaints API did not return a list.");
+            }
+
+            if (complaints.length === 0) {
+                const empty = document.createElement("div");
+                empty.className = "empty";
+                empty.textContent = "No complaints found.";
+                container.appendChild(empty);
+            }
 
             complaints.forEach(complaint => {
                 const card = document.createElement("section");
                 card.className = "card";
 
                 const title = document.createElement("h3");
-                title.textContent = complaint.title || ("Complaint #" + complaint.id);
+                title.textContent =
+                    complaint.title || ("Complaint #" + complaint.id);
                 card.appendChild(title);
 
                 const details = document.createElement("p");
+                details.className = "details";
                 details.textContent =
-                    "ID: " + (complaint.id ?? "") +
+                    "Complaint ID: " + (complaint.id ?? "") +
+                    "\nStudent: " + (complaint.studentName ?? "Not provided") +
                     "\nRoom: " + (complaint.roomNumber ?? "Not provided") +
-                    "\nCategory: " + (complaint.category ?? "") +
-                    "\nPriority: " + (complaint.priority ?? "") +
-                    "\nStatus: " + (complaint.status ?? "") +
-                    "\nDescription: " + (complaint.description ?? "");
-                details.style.whiteSpace = "pre-line";
+                    "\nCategory: " + (complaint.category ?? "Not provided") +
+                    "\nPriority: " + (complaint.priority ?? "Not provided") +
+                    "\nComplaint Status: " + (complaint.status ?? "Pending") +
+                    "\nVerification Status: " +
+                    (complaint.verificationStatus ?? "Pending") +
+                    "\nVerified By: " + (complaint.verifiedBy ?? "Not assigned") +
+                    "\nAssigned Mechanic: " +
+                    (complaint.assignedMechanic ?? "Not assigned") +
+                    "\nDescription: " + (complaint.description ?? "Not provided");
+
                 card.appendChild(details);
 
+                const rcLabel = makeLabel(
+                    "RC Name", "rc-name-" + complaint.id
+                );
+                const rcInput = document.createElement("input");
+                rcInput.type = "text";
+                rcInput.id = "rc-name-" + complaint.id;
+                rcInput.placeholder = "Enter RC name";
+                rcInput.autocomplete = "name";
+                rcInput.required = true;
+                card.append(rcLabel, rcInput);
+
+                const priorityLabel = makeLabel(
+                    "Complaint Priority", "priority-" + complaint.id
+                );
+                const prioritySelect = document.createElement("select");
+                prioritySelect.id = "priority-" + complaint.id;
+
+                ["Low", "Medium", "High"].forEach(priority => {
+                    const option = document.createElement("option");
+                    option.value = priority;
+                    option.textContent = priority;
+                    prioritySelect.appendChild(option);
+                });
+
+                prioritySelect.value =
+                    ["Low", "Medium", "High"].includes(complaint.priority)
+                        ? complaint.priority : "Medium";
+
+                card.append(priorityLabel, prioritySelect);
+
+                const savePriority = document.createElement("button");
+                savePriority.type = "button";
+                savePriority.className = "save-priority";
+                savePriority.textContent = "Save Priority";
+                savePriority.addEventListener("click", () => {
+                    alert(
+                        "Priority selection is ready, but saving requires " +
+                        "the backend priority-update API. No change has been saved."
+                    );
+                });
+                card.appendChild(savePriority);
+
                 const approve = document.createElement("button");
+                approve.type = "button";
                 approve.className = "approve";
                 approve.textContent = "Verify";
-                approve.onclick = () => updateVerification(complaint.id, true);
 
                 const reject = document.createElement("button");
+                reject.type = "button";
                 reject.className = "reject";
                 reject.textContent = "Reject";
-                reject.onclick = () => updateVerification(complaint.id, false);
+
+                const verificationStatus =
+                    (complaint.verificationStatus || "").toLowerCase();
+
+                if (verificationStatus === "verified" ||
+                    verificationStatus === "rejected") {
+                    approve.disabled = true;
+                    reject.disabled = true;
+                    approve.textContent = "Decision Recorded";
+                }
+
+                approve.addEventListener("click", () => {
+                    updateVerification(
+                        complaint.id, true, rcInput.value,
+                        approve, reject
+                    );
+                });
+
+                reject.addEventListener("click", () => {
+                    updateVerification(
+                        complaint.id, false, rcInput.value,
+                        approve, reject
+                    );
+                });
 
                 card.append(approve, reject);
                 container.appendChild(card);
             });
 
             message.textContent = complaints.length + " complaint(s) loaded.";
+
         } catch (error) {
             message.textContent = error.message;
+        } finally {
+            loading = false;
         }
     }
 
-    async function updateVerification(id, verified) {
+    async function updateVerification(id, verified, rcName, approve, reject) {
+        rcName = rcName.trim();
+
+        if (!rcName) {
+            alert("Please enter the RC name.");
+            return;
+        }
+
+        approve.disabled = true;
+        reject.disabled = true;
+
         try {
-            const response = await fetch("/api/complaints/" + id + "/verification", {
-                method: "PATCH",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-CSRF-TOKEN": csrfToken
-                },
-                body: JSON.stringify({ verified })
-            });
+            if (!csrfToken) await getCsrfToken();
+
+            const response = await fetch(
+                "/api/complaints/" + encodeURIComponent(id) + "/verification",
+                {
+                    method: "PATCH",
+                    credentials: "same-origin",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Accept": "application/json",
+                        "X-CSRF-TOKEN": csrfToken
+                    },
+                    body: JSON.stringify({
+                        verificationStatus: verified ? "Verified" : "Rejected",
+                        verifiedBy: rcName
+                    })
+                }
+            );
 
             if (!response.ok) {
-                const text = await response.text();
-                throw new Error(text || "Verification update failed.");
+                throw new Error(
+                    "Verification failed (HTTP " + response.status + "): " +
+                    (await readResponse(response) || "Unknown server error")
+                );
             }
 
+            message.textContent =
+                "Complaint #" + id + " " +
+                (verified ? "verified" : "rejected") + " successfully.";
+
             await loadComplaints();
+
         } catch (error) {
+            message.textContent = error.message;
             alert(error.message);
+        } finally {
+            approve.disabled = false;
+            reject.disabled = false;
         }
     }
 
     async function logout() {
         try {
+            if (!csrfToken) await getCsrfToken();
+
             const response = await fetch("/logout", {
                 method: "POST",
+                credentials: "same-origin",
                 headers: { "X-CSRF-TOKEN": csrfToken }
             });
+
             if (response.ok || response.redirected) {
                 window.location.replace("/login.html?logout");
             } else {
-                alert("Logout failed.");
+                throw new Error(
+                    "Logout failed (HTTP " + response.status + "): " +
+                    await readResponse(response)
+                );
             }
         } catch (error) {
             alert(error.message);
         }
     }
+
+    document.getElementById("refreshButton")
+        .addEventListener("click", loadComplaints);
+
+    document.getElementById("logoutButton")
+        .addEventListener("click", logout);
 
     async function initialize() {
         try {
             await getCsrfToken();
             await loadComplaints();
         } catch (error) {
-            document.getElementById("message").textContent = error.message;
+            message.textContent = error.message;
         }
     }
 

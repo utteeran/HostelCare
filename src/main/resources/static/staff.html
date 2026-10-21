@@ -1,28 +1,94 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HostelCare | Staff Dashboard</title>
+
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; background: #6f9ce0; color: #1e293b; }
-        header { background: #172554; color: white; padding: 20px 5%; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; }
-        main { max-width: 1000px; margin: 25px auto; padding: 0 15px; }
-        .card { background: white; padding: 20px; margin-bottom: 15px; border-radius: 10px; overflow-wrap: anywhere; }
-        button, select { padding: 10px 14px; margin: 5px; border: 0; border-radius: 5px; }
-        button { background: #243b64; color: white; cursor: pointer; }
-        .logout { background: #b34b43; }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background: #6f9ce0;
+            color: #1e293b;
+        }
+
+        header {
+            background: #172554;
+            color: white;
+            padding: 20px 5%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        main {
+            max-width: 1000px;
+            margin: 25px auto;
+            padding: 0 15px;
+        }
+
+        .card {
+            background: white;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-radius: 10px;
+            overflow-wrap: anywhere;
+        }
+
+        button, select, input {
+            padding: 10px 14px;
+            margin: 5px;
+            border: 1px solid #cbd5e1;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+
+        button {
+            background: #243b64;
+            color: white;
+            cursor: pointer;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        .logout {
+            background: #b34b43;
+        }
+
+        .assign-section {
+            margin-top: 15px;
+            padding-top: 12px;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .assign-section input {
+            width: min(100%, 280px);
+        }
+
+        .message {
+            font-weight: bold;
+        }
     </style>
 </head>
+
 <body>
 <header>
-    <div><h1>HostelCare Staff</h1><p>Complaint Management</p></div>
+    <div>
+        <h1>HostelCare Staff</h1>
+        <p>Complaint Management</p>
+    </div>
     <button class="logout" onclick="logout()">Logout</button>
 </header>
+
 <main>
     <h2>Complaint Dashboard</h2>
     <button onclick="loadComplaints()">Refresh Complaints</button>
-    <p id="message" role="status"></p>
+    <p id="message" class="message" role="status"></p>
     <div id="complaints"></div>
 </main>
 
@@ -31,19 +97,28 @@
 
     async function getCsrfToken() {
         const response = await fetch("/csrf");
-        if (!response.ok) throw new Error("Could not get security token.");
-        csrfToken = (await response.json()).token;
+
+        if (!response.ok) {
+            throw new Error("Could not get security token.");
+        }
+
+        const data = await response.json();
+        csrfToken = data.token;
     }
 
     async function loadComplaints() {
         const container = document.getElementById("complaints");
         const message = document.getElementById("message");
+
         container.replaceChildren();
         message.textContent = "Loading complaints...";
 
         try {
             const response = await fetch("/api/complaints");
-            if (!response.ok) throw new Error("Could not load complaints.");
+
+            if (!response.ok) {
+                throw new Error("Could not load complaints.");
+            }
 
             const complaints = await response.json();
 
@@ -52,7 +127,8 @@
                 card.className = "card";
 
                 const title = document.createElement("h3");
-                title.textContent = complaint.title || ("Complaint #" + complaint.id);
+                title.textContent =
+                    complaint.title || ("Complaint #" + complaint.id);
                 card.appendChild(title);
 
                 const details = document.createElement("p");
@@ -64,28 +140,70 @@
                     "\nCategory: " + (complaint.category ?? "") +
                     "\nPriority: " + (complaint.priority ?? "") +
                     "\nDescription: " + (complaint.description ?? "") +
-                    "\nCurrent status: " + (complaint.status ?? "");
+                    "\nCurrent Status: " + (complaint.status ?? "") +
+                    "\nVerification: " +
+                    (complaint.verificationStatus ?? "Pending") +
+                    "\nAssigned Electrician: " +
+                    (complaint.assignedMechanic || "Not assigned");
+
                 card.appendChild(details);
 
-                const select = document.createElement("select");
+                // Update complaint status
+                const statusSelect = document.createElement("select");
+
                 ["Pending", "In Progress", "Resolved"].forEach(status => {
                     const option = document.createElement("option");
                     option.value = status;
                     option.textContent = status;
-                    select.appendChild(option);
+                    statusSelect.appendChild(option);
                 });
 
-                if (complaint.status) select.value = complaint.status;
+                if (complaint.status) {
+                    statusSelect.value = complaint.status;
+                }
 
-                const update = document.createElement("button");
-                update.textContent = "Update Status";
-                update.onclick = () => updateStatus(complaint.id, select.value);
+                const updateButton = document.createElement("button");
+                updateButton.textContent = "Update Status";
+                updateButton.onclick = () =>
+                    updateStatus(complaint.id, statusSelect.value);
 
-                card.append(select, update);
+                card.append(statusSelect, updateButton);
+
+                // Electrician assignment section
+                const assignSection = document.createElement("div");
+                assignSection.className = "assign-section";
+
+                const assignHeading = document.createElement("h4");
+                assignHeading.textContent = "Assign Electrician";
+                assignSection.appendChild(assignHeading);
+
+                const electricianInput = document.createElement("input");
+                electricianInput.type = "text";
+                electricianInput.placeholder = "Enter electrician name";
+                electricianInput.value = complaint.assignedMechanic || "";
+                electricianInput.maxLength = 100;
+                electricianInput.setAttribute(
+                    "aria-label",
+                    "Electrician name for complaint " + complaint.id
+                );
+
+                const assignButton = document.createElement("button");
+                assignButton.textContent = "Assign Electrician";
+                assignButton.onclick = () =>
+                    assignElectrician(
+                        complaint.id,
+                        electricianInput.value.trim()
+                    );
+
+                assignSection.append(electricianInput, assignButton);
+                card.appendChild(assignSection);
+
                 container.appendChild(card);
             });
 
-            message.textContent = complaints.length + " complaint(s) loaded.";
+            message.textContent =
+                complaints.length + " complaint(s) loaded.";
+
         } catch (error) {
             message.textContent = error.message;
         }
@@ -93,21 +211,63 @@
 
     async function updateStatus(id, status) {
         try {
-            const response = await fetch("/api/complaints/" + id + "/status", {
-                method: "PATCH",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-CSRF-TOKEN": csrfToken
-                },
-                body: JSON.stringify({ status })
-            });
+            const response = await fetch(
+                "/api/complaints/" + id + "/status",
+                {
+                    method: "PATCH",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRF-TOKEN": csrfToken
+                    },
+                    body: JSON.stringify({ status: status })
+                }
+            );
 
             if (!response.ok) {
                 const text = await response.text();
                 throw new Error(text || "Status update failed.");
             }
 
+            document.getElementById("message").textContent =
+                "Complaint status updated.";
             await loadComplaints();
+
+        } catch (error) {
+            alert(error.message);
+        }
+    }
+
+    async function assignElectrician(id, electricianName) {
+        if (!electricianName) {
+            alert("Please enter the electrician's name.");
+            return;
+        }
+
+        try {
+            const response = await fetch(
+                "/api/complaints/" + id + "/assign",
+                {
+                    method: "PATCH",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRF-TOKEN": csrfToken
+                    },
+                    body: JSON.stringify({
+                        assignedMechanic: electricianName
+                    })
+                }
+            );
+
+            if (!response.ok) {
+                const text = await response.text();
+                throw new Error(
+                    text || "Electrician assignment failed."
+                );
+            }
+
+            alert("Electrician assigned successfully.");
+            await loadComplaints();
+
         } catch (error) {
             alert(error.message);
         }
@@ -117,7 +277,9 @@
         try {
             const response = await fetch("/logout", {
                 method: "POST",
-                headers: { "X-CSRF-TOKEN": csrfToken }
+                headers: {
+                    "X-CSRF-TOKEN": csrfToken
+                }
             });
 
             if (response.ok || response.redirected) {
@@ -135,7 +297,8 @@
             await getCsrfToken();
             await loadComplaints();
         } catch (error) {
-            document.getElementById("message").textContent = error.message;
+            document.getElementById("message").textContent =
+                error.message;
         }
     }
 
